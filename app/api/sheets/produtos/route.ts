@@ -6,7 +6,8 @@ export async function GET() {
     const produtos = await getProdutos();
     return NextResponse.json(produtos);
   } catch (error) {
-    console.error('Erro ao buscar produtos:', error);
-    return NextResponse.json({ error: 'Erro ao buscar produtos' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[API /sheets/produtos GET]', msg);
+    return NextResponse.json({ error: 'Erro ao buscar produtos', detail: msg }, { status: 500 });
   }
 }

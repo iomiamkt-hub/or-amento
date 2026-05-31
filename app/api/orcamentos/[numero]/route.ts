@@ -8,10 +8,21 @@ export async function PATCH(
   try {
     const { numero } = await params;
     const { status } = await request.json();
-    await updateOrcamentoStatus(numero, status);
+
+    if (!status) {
+      return NextResponse.json({ error: 'Status é obrigatório' }, { status: 400 });
+    }
+
+    const found = await updateOrcamentoStatus(numero, status);
+
+    if (!found) {
+      return NextResponse.json({ error: `Orçamento ${numero} não encontrado` }, { status: 404 });
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Erro ao atualizar status:', error);
-    return NextResponse.json({ error: 'Erro ao atualizar status' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[API /orcamentos/[numero] PATCH]', msg);
+    return NextResponse.json({ error: 'Erro ao atualizar status', detail: msg }, { status: 500 });
   }
 }

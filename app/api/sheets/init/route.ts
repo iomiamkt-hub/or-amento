@@ -3,10 +3,18 @@ import { ensureSheetTabs } from '@/lib/google-sheets';
 
 export async function POST() {
   try {
-    await ensureSheetTabs();
-    return NextResponse.json({ success: true, message: 'Abas criadas/verificadas com sucesso' });
+    const result = await ensureSheetTabs();
+    return NextResponse.json({
+      success: true,
+      message: result.created.length > 0
+        ? `Abas criadas: ${result.created.join(', ')}`
+        : 'Todas as abas já existem.',
+      created: result.created,
+      existing: result.existing,
+    });
   } catch (error) {
-    console.error('Erro ao inicializar planilha:', error);
-    return NextResponse.json({ error: 'Erro ao inicializar planilha' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[API /sheets/init POST]', msg);
+    return NextResponse.json({ error: 'Erro ao inicializar planilha', detail: msg }, { status: 500 });
   }
 }

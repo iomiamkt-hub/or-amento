@@ -14,8 +14,9 @@ export async function GET() {
     const clientes = await getClientes();
     return NextResponse.json(clientes);
   } catch (error) {
-    console.error('Erro ao buscar clientes:', error);
-    return NextResponse.json({ error: 'Erro ao buscar clientes' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[API /clientes GET]', msg);
+    return NextResponse.json({ error: 'Erro ao buscar clientes', detail: msg }, { status: 500 });
   }
 }
 
@@ -27,9 +28,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ id, ...data }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: (error as z.ZodError).issues }, { status: 400 });
+      return NextResponse.json({ error: 'Dados inválidos', detail: error.issues }, { status: 400 });
     }
-    console.error('Erro ao salvar cliente:', error);
-    return NextResponse.json({ error: 'Erro ao salvar cliente' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[API /clientes POST]', msg);
+    return NextResponse.json({ error: 'Erro ao salvar cliente', detail: msg }, { status: 500 });
   }
 }

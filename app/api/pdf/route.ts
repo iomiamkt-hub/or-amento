@@ -5,21 +5,27 @@ import { getDefaultConfig } from '@/lib/config';
 
 export async function POST(request: Request) {
   try {
-    const { orcamento, config }: { orcamento: Orcamento; config?: ConfiguracaoEmpresa } =
-      await request.json();
+    const body = await request.json();
+    const orcamento: Orcamento = body.orcamento;
+    const config: ConfiguracaoEmpresa = body.config ?? getDefaultConfig();
 
-    const configuracao = config ?? getDefaultConfig();
-    const pdfBytes = await generatePDF(orcamento, configuracao);
+    if (!orcamento?.numero || !orcamento?.cliente) {
+      return NextResponse.json({ error: 'Dados do orçamento inválidos' }, { status: 400 });
+    }
+
+    const pdfBytes = await generatePDF(orcamento, config);
 
     return new NextResponse(Buffer.from(pdfBytes), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="orcamento-${orcamento.numero}.pdf"`,
+        'Cache-Control': 'no-store',
       },
     });
   } catch (error) {
-    console.error('Erro ao gerar PDF:', error);
-    return NextResponse.json({ error: 'Erro ao gerar PDF' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error('[API /pdf POST]', msg);
+    return NextResponse.json({ error: 'Erro ao gerar PDF', detail: msg }, { status: 500 });
   }
 }

@@ -5,9 +5,7 @@ import { Button } from './ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { getConfiguracao } from '@/lib/config';
 import type { Orcamento } from '@/types';
-import {
-  FileText, Download, Share2, MessageCircle, Printer
-} from 'lucide-react';
+import { FileText, Download, MessageCircle } from 'lucide-react';
 
 interface Props {
   orcamento: Orcamento;
@@ -17,9 +15,11 @@ interface Props {
 
 export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props) {
   const [gerandoPDF, setGerandoPDF] = useState(false);
+  const [erroPDF, setErroPDF] = useState('');
 
   async function gerarPDF(download = true) {
     setGerandoPDF(true);
+    setErroPDF('');
     try {
       const config = getConfiguracao();
       const res = await fetch('/api/pdf', {
@@ -27,9 +27,15 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orcamento, config }),
       });
-      if (!res.ok) throw new Error('Erro ao gerar PDF');
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail ?? err.error ?? `HTTP ${res.status}`);
+      }
+
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
+
       if (download) {
         const a = document.createElement('a');
         a.href = url;
@@ -38,8 +44,9 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
       } else {
         window.open(url, '_blank');
       }
-    } catch {
-      alert('Erro ao gerar PDF');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      setErroPDF(msg);
     } finally {
       setGerandoPDF(false);
     }
@@ -75,7 +82,7 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
             )}
           </div>
 
-          {/* Itens */}
+          {/* Produtos */}
           {orcamento.itens.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Produtos</p>
@@ -141,6 +148,13 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
           </div>
         </CardContent>
       </Card>
+
+      {/* Erro do PDF */}
+      {erroPDF && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
+          <strong>Erro ao gerar PDF:</strong> {erroPDF}
+        </div>
+      )}
 
       {/* Ações */}
       <div className="space-y-2">
