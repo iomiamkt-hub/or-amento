@@ -288,9 +288,11 @@ export default function NovoOrcamentoPage() {
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {CATEGORIAS_TIPO.map((c) => (
-                        <SelectItem key={c} value={c}>{c}</SelectItem>
-                      ))}
+                      {[...new Set(produtos.map((p) => p.categoria))]
+                        .sort((a, b) => CATEGORIAS_TIPO.indexOf(a) - CATEGORIAS_TIPO.indexOf(b))
+                        .map((c) => (
+                          <SelectItem key={c} value={c}>{c}</SelectItem>
+                        ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -341,9 +343,9 @@ export default function NovoOrcamentoPage() {
                     </span>
                   </div>
 
-                  {/* Vidro: altura + largura + quantidade de painéis */}
+                  {/* Área: altura + largura [+ painéis se Vidro] */}
                   {campos.usaAltura && campos.usaLargura && (
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className={`grid gap-3 ${campos.usaQuantidade ? 'grid-cols-4' : 'grid-cols-3'}`}>
                       <div>
                         <Label>Altura (m)</Label>
                         <Input
@@ -367,13 +369,15 @@ export default function NovoOrcamentoPage() {
                           readOnly className="bg-gray-50 font-semibold"
                         />
                       </div>
-                      <div>
-                        <Label>Quantidade</Label>
-                        <Input
-                          type="number" min="1" placeholder="1"
-                          value={quantidade} onChange={(e) => setQuantidade(e.target.value)}
-                        />
-                      </div>
+                      {campos.usaQuantidade && (
+                        <div>
+                          <Label>Painéis</Label>
+                          <Input
+                            type="number" min="1" placeholder="1"
+                            value={quantidade} onChange={(e) => setQuantidade(e.target.value)}
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
 
