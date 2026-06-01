@@ -1,15 +1,23 @@
-// ─── Categorias de produto com regras de cálculo distintas ──────────────────
-export type CategoriaType = 'Vidro' | 'Kit' | 'Perfil' | 'Estrutura' | 'Acessorio';
+// ─── 7 categorias com regras de cálculo distintas ────────────────────────────
+export type CategoriaType =
+  | 'Vidro'
+  | 'Kit'
+  | 'Perfil'
+  | 'Estrutura'
+  | 'Acessorio'
+  | 'Sacada'
+  | 'Espelho';
 
 export const CATEGORIAS_TIPO: CategoriaType[] = [
   'Vidro',
+  'Sacada',
+  'Espelho',
   'Kit',
   'Perfil',
   'Estrutura',
   'Acessorio',
 ];
 
-// Unidade de medida que a planilha usa para cada categoria
 export type UnidadeTipo = 'm2' | 'm' | 'un';
 
 export interface Produto {
@@ -18,7 +26,7 @@ export interface Produto {
   produto: string;
   unidade: UnidadeTipo;
   valorUnitario: number;
-  observacao?: string;
+  ativo: boolean;
 }
 
 export interface Cliente {
@@ -29,7 +37,6 @@ export interface Cliente {
   endereco?: string;
 }
 
-// ─── Item unificado — engloba vidros, kits, perfis, estruturas e acessórios ──
 export interface ItemOrcamento {
   id: string;
   produtoId: string;
@@ -37,23 +44,22 @@ export interface ItemOrcamento {
   categoria: CategoriaType;
   unidade: UnidadeTipo;
 
-  // Vidro: dimensões em metros
+  // Vidro / Sacada / Espelho — dimensões em metros
   altura?: number;
   largura?: number;
-  area?: number; // altura × largura
+  area?: number;
 
-  // Perfil / Estrutura: metros lineares
+  // Perfil / Estrutura — metros lineares
   metragem?: number;
 
-  // Kit / Acessório: unidades
+  // Vidro — quantidade de painéis (multiplicador extra sobre a área)
   quantidade?: number;
 
-  // Valor base da planilha (por m², por m ou por un)
+  // Kit / Acessório — unidades
+  // (reutiliza o campo `quantidade`)
+
   valorUnitario: number;
-
-  // Total calculado
   subtotal: number;
-
   observacao?: string;
 }
 

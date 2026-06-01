@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import type { Cliente, Produto, Orcamento } from '@/types';
-import { normalizarCategoria, normalizarUnidade } from './calc';
+import { normalizarCategoria, normalizarUnidade, normalizarAtivo } from './calc';
 import { withCache } from './sheets-cache';
 
 // ─── Auth (singleton por instância serverless) ────────────────────────────────
@@ -53,17 +53,19 @@ export async function getProdutos(): Promise<Produto[]> {
     const sheets = getSheets();
     const res = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID(),
+      // A=ID  B=Categoria  C=Produto  D=Unidade  E=Valor  F=Ativo
       range: 'PRODUTOS!A2:F',
     });
     return (res.data.values ?? [])
       .filter((row) => row[0] && row[2]) // ID e Produto obrigatórios
+      .filter((row) => normalizarAtivo(String(row[5] ?? ''))) // só ativos
       .map((row) => ({
         id: String(row[0] ?? ''),
         categoria: normalizarCategoria(String(row[1] ?? '')),
         produto: String(row[2] ?? ''),
         unidade: normalizarUnidade(String(row[3] ?? 'un')),
         valorUnitario: parseFloat(String(row[4] ?? '0').replace(',', '.')) || 0,
-        observacao: String(row[5] ?? ''),
+        ativo: true,
       }));
   });
 }
@@ -173,7 +175,7 @@ export async function ensureSheetTabs(): Promise<{ created: string[]; existing: 
 
   const required = ['PRODUTOS', 'CLIENTES', 'ORÇAMENTOS'];
   const headers: Record<string, string[][]> = {
-    PRODUTOS: [['ID', 'Categoria', 'Produto', 'Unidade', 'Valor Unitário', 'Observação']],
+    PRODUTOS: [['ID', 'Categoria', 'Produto', 'Unidade', 'Valor', 'Ativo']],
     CLIENTES: [['ID', 'Nome', 'Telefone', 'Email', 'Endereço']],
     'ORÇAMENTOS': [['Nº Orçamento', 'Data', 'Cliente', 'Valor Total', 'Status']],
   };

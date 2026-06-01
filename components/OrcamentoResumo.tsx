@@ -9,9 +9,11 @@ import type { Orcamento, CategoriaType } from '@/types';
 import { FileText, Download, MessageCircle } from 'lucide-react';
 
 const BADGE_CORES: Record<CategoriaType, string> = {
-  Vidro: 'bg-blue-100 text-blue-700',
-  Kit: 'bg-purple-100 text-purple-700',
-  Perfil: 'bg-orange-100 text-orange-700',
+  Vidro:     'bg-blue-100 text-blue-700',
+  Sacada:    'bg-cyan-100 text-cyan-700',
+  Espelho:   'bg-indigo-100 text-indigo-700',
+  Kit:       'bg-purple-100 text-purple-700',
+  Perfil:    'bg-orange-100 text-orange-700',
   Estrutura: 'bg-red-100 text-red-700',
   Acessorio: 'bg-gray-100 text-gray-700',
 };

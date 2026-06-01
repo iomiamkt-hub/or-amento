@@ -12,16 +12,19 @@ import type { Cliente, Produto, ItemOrcamento, Orcamento, CategoriaType } from '
 import { CATEGORIAS_TIPO } from '@/types';
 import { generateNumeroOrcamento, formatCurrency } from '@/lib/utils';
 import { calcularSubtotal, descreverMedida, CAMPOS_POR_CATEGORIA } from '@/lib/calc';
-import { PlusCircle, Trash2, UserPlus, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { PlusCircle, Trash2, UserPlus, AlertCircle } from 'lucide-react';
+import { CAT_AREA, CAT_METRO } from '@/lib/calc';
 
 function today() {
   return new Date().toLocaleDateString('pt-BR');
 }
 
-const BADGE_CORES: Record<CategoriaType, string> = {
-  Vidro: 'bg-blue-100 text-blue-700',
-  Kit: 'bg-purple-100 text-purple-700',
-  Perfil: 'bg-orange-100 text-orange-700',
+export const BADGE_CORES: Record<CategoriaType, string> = {
+  Vidro:     'bg-blue-100 text-blue-700',
+  Sacada:    'bg-cyan-100 text-cyan-700',
+  Espelho:   'bg-indigo-100 text-indigo-700',
+  Kit:       'bg-purple-100 text-purple-700',
+  Perfil:    'bg-orange-100 text-orange-700',
   Estrutura: 'bg-red-100 text-red-700',
   Acessorio: 'bg-gray-100 text-gray-700',
 };
@@ -118,15 +121,15 @@ export default function NovoOrcamentoPage() {
       valorCustom: valorCustom ? parseFloat(valorCustom) : undefined,
     };
 
-    // Validações por categoria
-    if (produtoSelecionado.categoria === 'Vidro') {
+    // Validações por grupo de categoria
+    if (CAT_AREA.includes(produtoSelecionado.categoria)) {
       if (!camposItem.altura || camposItem.altura <= 0) { setErroItem('Informe a altura'); return; }
       if (!camposItem.largura || camposItem.largura <= 0) { setErroItem('Informe a largura'); return; }
     }
-    if (['Perfil', 'Estrutura'].includes(produtoSelecionado.categoria)) {
+    if (CAT_METRO.includes(produtoSelecionado.categoria)) {
       if (!camposItem.metragem || camposItem.metragem <= 0) { setErroItem('Informe a metragem'); return; }
     }
-    if (['Kit', 'Acessorio'].includes(produtoSelecionado.categoria)) {
+    if (campos?.usaQuantidade && !campos.usaAltura) {
       if (!camposItem.quantidade || camposItem.quantidade <= 0) { setErroItem('Informe a quantidade'); return; }
     }
 
