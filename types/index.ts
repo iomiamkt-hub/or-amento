@@ -1,16 +1,24 @@
+// ─── Categorias de produto com regras de cálculo distintas ──────────────────
+export type CategoriaType = 'Vidro' | 'Kit' | 'Perfil' | 'Estrutura' | 'Acessorio';
+
+export const CATEGORIAS_TIPO: CategoriaType[] = [
+  'Vidro',
+  'Kit',
+  'Perfil',
+  'Estrutura',
+  'Acessorio',
+];
+
+// Unidade de medida que a planilha usa para cada categoria
+export type UnidadeTipo = 'm2' | 'm' | 'un';
+
 export interface Produto {
   id: string;
-  categoria: string;
+  categoria: CategoriaType;
   produto: string;
-  unidade: 'm²' | 'un' | 'm' | 'kit';
+  unidade: UnidadeTipo;
   valorUnitario: number;
   observacao?: string;
-}
-
-export interface Acessorio {
-  id: string;
-  nome: string;
-  valor: number;
 }
 
 export interface Cliente {
@@ -21,27 +29,32 @@ export interface Cliente {
   endereco?: string;
 }
 
+// ─── Item unificado — engloba vidros, kits, perfis, estruturas e acessórios ──
 export interface ItemOrcamento {
   id: string;
   produtoId: string;
   produto: string;
-  categoria: string;
-  largura?: number;
-  altura?: number;
-  area?: number;
-  quantidade: number;
-  valorUnitario: number;
-  subtotal: number;
-  tipoCalculo: 'm2' | 'unitario';
-  observacao?: string;
-}
+  categoria: CategoriaType;
+  unidade: UnidadeTipo;
 
-export interface AcessorioItem {
-  id: string;
-  nome: string;
-  quantidade: number;
-  valor: number;
+  // Vidro: dimensões em metros
+  altura?: number;
+  largura?: number;
+  area?: number; // altura × largura
+
+  // Perfil / Estrutura: metros lineares
+  metragem?: number;
+
+  // Kit / Acessório: unidades
+  quantidade?: number;
+
+  // Valor base da planilha (por m², por m ou por un)
+  valorUnitario: number;
+
+  // Total calculado
   subtotal: number;
+
+  observacao?: string;
 }
 
 export type StatusOrcamento = 'Em aberto' | 'Aprovado' | 'Reprovado' | 'Em negociação';
@@ -52,7 +65,6 @@ export interface Orcamento {
   clienteId: string;
   cliente: Cliente;
   itens: ItemOrcamento[];
-  acessorios: AcessorioItem[];
   instalacao: number;
   frete: number;
   desconto: number;
@@ -73,18 +85,4 @@ export interface ConfiguracaoEmpresa {
   rodapePDF: string;
   validadeOrcamento: number;
   corPrimaria: string;
-}
-
-export interface DashboardStats {
-  totalOrcamentos: number;
-  valorTotalVendido: number;
-  orcamentosMes: number;
-  taxaAprovacao: number;
-  orcamentosRecentes: Array<{
-    numero: string;
-    cliente: string;
-    valor: number;
-    status: StatusOrcamento;
-    data: string;
-  }>;
 }

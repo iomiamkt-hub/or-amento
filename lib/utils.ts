@@ -28,15 +28,3 @@ export const STATUS_COLORS: Record<string, string> = {
   'Reprovado': 'bg-red-100 text-red-800',
   'Em negociação': 'bg-blue-100 text-blue-800',
 };
-
-export const CATEGORIAS = [
-  'Box para Banheiro',
-  'Sacada de Vidro',
-  'Cortina de Vidro',
-  'Espelho',
-  'Guarda-corpo',
-  'Fechamento de Área',
-  'Esquadria de Alumínio',
-  'Porta',
-  'Janela',
-];

@@ -3,9 +3,18 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { formatCurrency } from '@/lib/utils';
+import { descreverMedida } from '@/lib/calc';
 import { getConfiguracao } from '@/lib/config';
-import type { Orcamento } from '@/types';
+import type { Orcamento, CategoriaType } from '@/types';
 import { FileText, Download, MessageCircle } from 'lucide-react';
+
+const BADGE_CORES: Record<CategoriaType, string> = {
+  Vidro: 'bg-blue-100 text-blue-700',
+  Kit: 'bg-purple-100 text-purple-700',
+  Perfil: 'bg-orange-100 text-orange-700',
+  Estrutura: 'bg-red-100 text-red-700',
+  Acessorio: 'bg-gray-100 text-gray-700',
+};
 
 interface Props {
   orcamento: Orcamento;
@@ -27,15 +36,12 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orcamento, config }),
       });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail ?? err.error ?? `HTTP ${res.status}`);
       }
-
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-
       if (download) {
         const a = document.createElement('a');
         a.href = url;
@@ -45,8 +51,7 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
         window.open(url, '_blank');
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-      setErroPDF(msg);
+      setErroPDF(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setGerandoPDF(false);
     }
@@ -61,9 +66,6 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
     const numeroCompleto = numero.startsWith('55') ? numero : `55${numero}`;
     window.open(`https://wa.me/${numeroCompleto}?text=${msg}`, '_blank');
   }
-
-  const totalItens = orcamento.itens.reduce((s, i) => s + i.subtotal, 0);
-  const totalAcessorios = orcamento.acessorios.reduce((s, a) => s + a.subtotal, 0);
 
   return (
     <div className="space-y-4">
@@ -82,35 +84,22 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
             )}
           </div>
 
-          {/* Produtos */}
+          {/* Itens */}
           {orcamento.itens.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Produtos</p>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-gray-500 uppercase">Itens</p>
               {orcamento.itens.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm py-1 border-b border-gray-100">
-                  <div>
-                    <p className="font-medium">{item.produto}</p>
-                    {item.largura && item.altura && (
-                      <p className="text-xs text-gray-500">
-                        {item.largura}m × {item.altura}m = {item.area?.toFixed(2)}m²
-                      </p>
-                    )}
-                    <p className="text-xs text-gray-500">Qtd: {item.quantidade}</p>
+                <div key={item.id} className="flex justify-between items-start text-sm py-1.5 border-b border-gray-100 gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-xs px-1.5 py-px rounded-full font-semibold ${BADGE_CORES[item.categoria]}`}>
+                        {item.categoria}
+                      </span>
+                      <span className="font-medium truncate">{item.produto}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">{descreverMedida(item)}</p>
                   </div>
-                  <p className="font-semibold text-right">{formatCurrency(item.subtotal)}</p>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Acessórios */}
-          {orcamento.acessorios.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Acessórios</p>
-              {orcamento.acessorios.map((a) => (
-                <div key={a.id} className="flex justify-between text-sm py-1 border-b border-gray-100">
-                  <span>{a.nome} (×{a.quantidade})</span>
-                  <span className="font-semibold">{formatCurrency(a.subtotal)}</span>
+                  <span className="font-semibold whitespace-nowrap">{formatCurrency(item.subtotal)}</span>
                 </div>
               ))}
             </div>
@@ -119,13 +108,9 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
           {/* Totais */}
           <div className="border-t pt-3 space-y-1">
             <div className="flex justify-between text-sm text-gray-600">
-              <span>Produtos:</span><span>{formatCurrency(totalItens)}</span>
+              <span>Subtotal itens:</span>
+              <span>{formatCurrency(orcamento.itens.reduce((s, i) => s + i.subtotal, 0))}</span>
             </div>
-            {totalAcessorios > 0 && (
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Acessórios:</span><span>{formatCurrency(totalAcessorios)}</span>
-              </div>
-            )}
             {orcamento.instalacao > 0 && (
               <div className="flex justify-between text-sm text-gray-600">
                 <span>Instalação:</span><span>{formatCurrency(orcamento.instalacao)}</span>
@@ -149,14 +134,12 @@ export default function OrcamentoResumo({ orcamento, onSalvar, salvando }: Props
         </CardContent>
       </Card>
 
-      {/* Erro do PDF */}
       {erroPDF && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
           <strong>Erro ao gerar PDF:</strong> {erroPDF}
         </div>
       )}
 
-      {/* Ações */}
       <div className="space-y-2">
         {onSalvar && (
           <Button onClick={onSalvar} disabled={salvando} className="w-full" size="lg">

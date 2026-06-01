@@ -1,5 +1,7 @@
 import { google } from 'googleapis';
-import type { Cliente, Produto, Acessorio, Orcamento } from '@/types';
+import type { Cliente, Produto, Orcamento } from '@/types';
+import { normalizarCategoria, normalizarUnidade } from './calc';
+import { withCache } from './sheets-cache';
 
 // ─── Auth (singleton por instância serverless) ────────────────────────────────
 
@@ -8,14 +10,11 @@ let _sheetsClient: ReturnType<typeof google.sheets> | null = null;
 function getPrivateKey(): string {
   const raw = process.env.GOOGLE_PRIVATE_KEY;
   if (!raw) throw new Error('[Sheets] GOOGLE_PRIVATE_KEY não configurada');
-
   // Suporta três formatos possíveis de como a Vercel entrega a variável:
-  // 1. Chave com quebras de linha reais (colada diretamente no painel)
-  // 2. Chave com \n literais (copiada do JSON sem processamento)
-  // 3. Chave com \\n duplo-escapado (quando o JSON foi stringificado duas vezes)
+  // 1. Chave com quebras de linha reais  2. \n literal  3. \\n duplo-escapado
   return raw
-    .replace(/\\\\n/g, '\n') // duplo-escapado → real
-    .replace(/\\n/g, '\n')   // simples-escapado → real
+    .replace(/\\\\n/g, '\n')
+    .replace(/\\n/g, '\n')
     .trim();
 }
 
@@ -25,23 +24,18 @@ function validateEnv() {
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL) missing.push('GOOGLE_SERVICE_ACCOUNT_EMAIL');
   if (!process.env.GOOGLE_PRIVATE_KEY) missing.push('GOOGLE_PRIVATE_KEY');
   if (missing.length > 0) {
-    throw new Error(`[Sheets] Variáveis de ambiente faltando: ${missing.join(', ')}`);
+    throw new Error(`[Sheets] Variáveis faltando: ${missing.join(', ')}`);
   }
 }
 
 function getSheets() {
   if (_sheetsClient) return _sheetsClient;
-
   validateEnv();
-
-  // Usar JWT diretamente é mais confiável em ambientes serverless (Vercel)
-  // do que GoogleAuth, pois evita tentativas de buscar credenciais de metadados
   const auth = new google.auth.JWT({
     email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL!,
     key: getPrivateKey(),
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
   });
-
   _sheetsClient = google.sheets({ version: 'v4', auth });
   return _sheetsClient;
 }
@@ -52,60 +46,47 @@ const SPREADSHEET_ID = () => {
   return id;
 };
 
-// ─── Produtos ─────────────────────────────────────────────────────────────────
+// ─── Produtos — com cache de 60s ─────────────────────────────────────────────
 
 export async function getProdutos(): Promise<Produto[]> {
-  const sheets = getSheets();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID(),
-    range: 'PRODUTOS!A2:F',
+  return withCache('produtos', async () => {
+    const sheets = getSheets();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID(),
+      range: 'PRODUTOS!A2:F',
+    });
+    return (res.data.values ?? [])
+      .filter((row) => row[0] && row[2]) // ID e Produto obrigatórios
+      .map((row) => ({
+        id: String(row[0] ?? ''),
+        categoria: normalizarCategoria(String(row[1] ?? '')),
+        produto: String(row[2] ?? ''),
+        unidade: normalizarUnidade(String(row[3] ?? 'un')),
+        valorUnitario: parseFloat(String(row[4] ?? '0').replace(',', '.')) || 0,
+        observacao: String(row[5] ?? ''),
+      }));
   });
-  return (res.data.values ?? [])
-    .filter((row) => row[0]) // ignora linhas vazias
-    .map((row) => ({
-      id: String(row[0] ?? ''),
-      categoria: String(row[1] ?? ''),
-      produto: String(row[2] ?? ''),
-      unidade: (row[3] ?? 'm²') as Produto['unidade'],
-      valorUnitario: parseFloat(String(row[4] ?? '0').replace(',', '.')) || 0,
-      observacao: String(row[5] ?? ''),
-    }));
 }
 
-// ─── Acessórios ───────────────────────────────────────────────────────────────
-
-export async function getAcessorios(): Promise<Acessorio[]> {
-  const sheets = getSheets();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID(),
-    range: 'ACESSÓRIOS!A2:C',
-  });
-  return (res.data.values ?? [])
-    .filter((row) => row[0])
-    .map((row) => ({
-      id: String(row[0] ?? ''),
-      nome: String(row[1] ?? ''),
-      valor: parseFloat(String(row[2] ?? '0').replace(',', '.')) || 0,
-    }));
-}
-
-// ─── Clientes ─────────────────────────────────────────────────────────────────
+// ─── Clientes — com cache de 60s ─────────────────────────────────────────────
 
 export async function getClientes(): Promise<Cliente[]> {
-  const sheets = getSheets();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID(),
-    range: 'CLIENTES!A2:E',
+  return withCache('clientes', async () => {
+    const sheets = getSheets();
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID(),
+      range: 'CLIENTES!A2:E',
+    });
+    return (res.data.values ?? [])
+      .filter((row) => row[0])
+      .map((row) => ({
+        id: String(row[0] ?? ''),
+        nome: String(row[1] ?? ''),
+        telefone: String(row[2] ?? ''),
+        email: String(row[3] ?? ''),
+        endereco: String(row[4] ?? ''),
+      }));
   });
-  return (res.data.values ?? [])
-    .filter((row) => row[0])
-    .map((row) => ({
-      id: String(row[0] ?? ''),
-      nome: String(row[1] ?? ''),
-      telefone: String(row[2] ?? ''),
-      email: String(row[3] ?? ''),
-      endereco: String(row[4] ?? ''),
-    }));
 }
 
 export async function saveCliente(cliente: Omit<Cliente, 'id'>): Promise<string> {
@@ -119,10 +100,13 @@ export async function saveCliente(cliente: Omit<Cliente, 'id'>): Promise<string>
       values: [[id, cliente.nome, cliente.telefone, cliente.email ?? '', cliente.endereco ?? '']],
     },
   });
+  // Invalida cache de clientes após escrita
+  const { cacheInvalidate } = await import('./sheets-cache');
+  cacheInvalidate('clientes');
   return id;
 }
 
-// ─── Orçamentos ───────────────────────────────────────────────────────────────
+// ─── Orçamentos — sem cache (dados transacionais) ─────────────────────────────
 
 export async function getOrcamentos(): Promise<Array<{
   numero: string; data: string; cliente: string; valorTotal: number; status: string;
@@ -163,47 +147,33 @@ export async function saveOrcamento(orcamento: Orcamento): Promise<void> {
 
 export async function updateOrcamentoStatus(numero: string, status: string): Promise<boolean> {
   const sheets = getSheets();
-
-  // Busca A:A (inclui cabeçalho na linha 1)
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID(),
     range: 'ORÇAMENTOS!A:A',
   });
-
   const rows = res.data.values ?? [];
-  // rows[0] = cabeçalho → rowIndex 0 = linha 1 da planilha
-  // rows[1] = primeira linha de dados → rowIndex 1 = linha 2 da planilha
   const rowIndex = rows.findIndex((r) => r[0] === numero);
-
-  if (rowIndex < 0) {
-    console.warn(`[Sheets] Orçamento ${numero} não encontrado para atualizar status`);
-    return false;
-  }
-
-  // rowIndex é 0-based; linha na planilha = rowIndex + 1 (1-based)
+  if (rowIndex < 0) return false;
   const sheetRow = rowIndex + 1;
-
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID(),
     range: `ORÇAMENTOS!E${sheetRow}`,
     valueInputOption: 'RAW',
     requestBody: { values: [[status]] },
   });
-
   return true;
 }
 
-// ─── Verificação / Inicialização das abas ─────────────────────────────────────
+// ─── Inicialização das abas ───────────────────────────────────────────────────
 
 export async function ensureSheetTabs(): Promise<{ created: string[]; existing: string[] }> {
   const sheets = getSheets();
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID() });
   const existing = (meta.data.sheets ?? []).map((s) => s.properties?.title ?? '');
 
-  const required = ['PRODUTOS', 'ACESSÓRIOS', 'CLIENTES', 'ORÇAMENTOS'];
+  const required = ['PRODUTOS', 'CLIENTES', 'ORÇAMENTOS'];
   const headers: Record<string, string[][]> = {
     PRODUTOS: [['ID', 'Categoria', 'Produto', 'Unidade', 'Valor Unitário', 'Observação']],
-    'ACESSÓRIOS': [['ID', 'Nome', 'Valor']],
     CLIENTES: [['ID', 'Nome', 'Telefone', 'Email', 'Endereço']],
     'ORÇAMENTOS': [['Nº Orçamento', 'Data', 'Cliente', 'Valor Total', 'Status']],
   };
@@ -217,7 +187,6 @@ export async function ensureSheetTabs(): Promise<{ created: string[]; existing: 
         requests: toCreate.map((title) => ({ addSheet: { properties: { title } } })),
       },
     });
-
     for (const title of toCreate) {
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID(),
@@ -236,7 +205,9 @@ export async function ensureSheetTabs(): Promise<{ created: string[]; existing: 
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 
-export async function checkConnection(): Promise<{ ok: boolean; error?: string; spreadsheetTitle?: string }> {
+export async function checkConnection(): Promise<{
+  ok: boolean; error?: string; spreadsheetTitle?: string;
+}> {
   try {
     validateEnv();
     const sheets = getSheets();
